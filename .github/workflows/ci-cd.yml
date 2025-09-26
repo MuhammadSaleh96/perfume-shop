@@ -68,11 +68,28 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure_skip_tls_verify: true
           namespace: muhammadsaleh96-dev
+      
+      - name: Ensure deployment exists
+        run: |
+         if ! oc get deployment perfume-shop -n muhammadsaleh96-dev; then
+            echo "Deployment not found. Creating..."
+            oc create deployment perfume-shop --image=mabaddi96/perfume-shop:latest -n muhammadsaleh96-dev
+          else
+            echo "Deployment already exists."
+          fi
 
       - name: Update deployment image
         run: |
           oc set image deployment/perfume-shop \
           perfume-shop=mabaddi96/perfume-shop:latest
+
+      - name: Ensure route exists
+        run: |
+          if ! oc get route perfume-shop -n muhammadsaleh96-dev; then
+            oc expose deployment perfume-shop --port=8080 --name=perfume-shop -n muhammadsaleh96-dev
+          else
+            echo "Route already exists."
+          fi
 
       - name: Wait for rollout or rollback on failure
         run: |
