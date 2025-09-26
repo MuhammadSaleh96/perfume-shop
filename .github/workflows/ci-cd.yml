@@ -102,8 +102,8 @@ jobs:
           fi
 
           echo "Checking for at least one ready pod..."
-          until [ "$(oc get pods -n muhammadsaleh96-dev -l app=perfume-shop -o jsonpath='{.items[0].status.containerStatuses[0].ready}')" == "true" ]; do
-            echo "Pod not ready yet. Waiting..."
+          while [ "$(oc get pods -n muhammadsaleh96-dev -l deployment=perfume-shop -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep true | wc -l)" -lt 1 ]; do
+            echo "Waiting for at least one ready pod..."
             sleep 5
           done
 
