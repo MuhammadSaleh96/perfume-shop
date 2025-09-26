@@ -46,7 +46,7 @@ jobs:
           docker push mabaddi96/perfume-shop:${{ github.sha }}
           docker push mabaddi96/perfume-shop:latest
 
-  # 3️⃣ Deploy to OpenShift
+  # 3️⃣ Deploy to OpenShift (create deployment & route if missing)
   deploy-to-openshift:
     runs-on: ubuntu-latest
     needs: docker-build-and-push
@@ -70,7 +70,7 @@ jobs:
         run: |
           if ! oc get deployment perfume-shop -n muhammadsaleh96-dev; then
             echo "Deployment not found. Creating..."
-            oc create deployment perfume-shop --image=mabaddi96/perfume-shop:latest -n muhammadsaleh96-dev
+            oc create deployment perfume-shop --image=${{ secrets.DOCKER_USERNAME }}/perfume-shop:latest -n muhammadsaleh96-dev
           else
             echo "Deployment already exists."
           fi
@@ -90,21 +90,42 @@ jobs:
           perfume-shop=mabaddi96/perfume-shop:latest
           oc scale deployment perfume-shop --replicas=1 -n muhammadsaleh96-dev
 
-      - name: Wait for rollout and pod readiness
+      - name: Wait for rollout, pod readiness, and endpoint
         run: |
+          MAX_WAIT=300      # Maximum seconds to wait (5 minutes)
+          INTERVAL=5        # Check every 5 seconds
+          ELAPSED=0
+
           echo "Waiting for deployment rollout..."
           if ! oc rollout status deployment/perfume-shop --timeout=5m; then
             echo "Rollout failed! Rolling back..."
             oc rollout undo deployment/perfume-shop
             oc rollout status deployment/perfume-shop
-            echo "Deployment failed and rollback triggered"
             exit 1
           fi
 
           echo "Waiting for at least one ready pod..."
-          until oc get pods -n muhammadsaleh96-dev -l app=perfume-shop -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -q true; do
+          until oc get pods -n muhammadsaleh96-dev -l deployment=perfume-shop -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -q true; do
+            if [ $ELAPSED -ge $MAX_WAIT ]; then
+              echo "Timed out waiting for pod readiness!"
+              exit 1
+            fi
             echo "Pod not ready yet. Waiting..."
-            sleep 5
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED+INTERVAL))
           done
 
-          echo "Deployment successful and pod is ready!"
+          echo "Pod is ready. Checking endpoint..."
+          ROUTE_URL=$(oc get route perfume-shop -n muhammadsaleh96-dev -o jsonpath='{.spec.host}')
+          ELAPSED=0
+          until curl --silent --head --fail "http://$ROUTE_URL" > /dev/null 2>&1; do
+            if [ $ELAPSED -ge $MAX_WAIT ]; then
+              echo "Timed out waiting for endpoint availability!"
+              exit 1
+            fi
+            echo "Endpoint not ready yet. Waiting..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED+INTERVAL))
+          done
+
+          echo "Deployment successful, pod is ready, and endpoint is serving traffic!"
