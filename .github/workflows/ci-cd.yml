@@ -83,3 +83,4 @@ jobs:
             echo "Deployment failed and rollback triggered"
           else
             echo "Deployment successful!"
+          fi
