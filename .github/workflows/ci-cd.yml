@@ -71,11 +71,8 @@ jobs:
           if ! oc get deployment perfume-shop -n muhammadsaleh96-dev; then
             echo "Deployment not found. Creating..."
             oc create deployment perfume-shop --image=mabaddi96/perfume-shop:latest -n muhammadsaleh96-dev
-            # Add consistent label
-            oc label deployment perfume-shop app=perfume-shop --overwrite -n muhammadsaleh96-dev
           else
             echo "Deployment already exists."
-            oc label deployment perfume-shop app=perfume-shop --overwrite -n muhammadsaleh96-dev
           fi
 
       - name: Ensure route exists
@@ -89,22 +86,23 @@ jobs:
 
       - name: Update deployment image and scale
         run: |
-          oc set image deployment/perfume-shop perfume-shop=mabaddi96/perfume-shop:latest -n muhammadsaleh96-dev \
-          && oc scale deployment perfume-shop --replicas=1 -n muhammadsaleh96-dev
+          oc set image deployment/perfume-shop \
+          perfume-shop=mabaddi96/perfume-shop:latest
+          oc scale deployment perfume-shop --replicas=1 -n muhammadsaleh96-dev
 
       - name: Wait for rollout and pod readiness
         run: |
           echo "Waiting for deployment rollout..."
-          if ! oc rollout status deployment/perfume-shop --timeout=5m -n muhammadsaleh96-dev; then
+          if ! oc rollout status deployment/perfume-shop --timeout=5m; then
             echo "Rollout failed! Rolling back..."
-            oc rollout undo deployment/perfume-shop -n muhammadsaleh96-dev
-            oc rollout status deployment/perfume-shop -n muhammadsaleh96-dev
+            oc rollout undo deployment/perfume-shop
+            oc rollout status deployment/perfume-shop
             echo "Deployment failed and rollback triggered"
             exit 1
           fi
 
-          echo "Checking for at least one ready pod..."
-          until oc get pods -n muhammadsaleh96-dev -l app=perfume-shop -o jsonpath='{.items[0].status.containerStatuses[0].ready}' | grep -q true; do
+          echo "Waiting for at least one ready pod..."
+          until oc get pods -n muhammadsaleh96-dev -l app=perfume-shop -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -q true; do
             echo "Pod not ready yet. Waiting..."
             sleep 5
           done
