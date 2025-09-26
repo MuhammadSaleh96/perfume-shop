@@ -89,13 +89,22 @@ jobs:
           oc set image deployment/perfume-shop \
           perfume-shop=mabaddi96/perfume-shop:latest
 
-      - name: Wait for rollout or rollback on failure
+      - name: Wait for rollout and pod readiness
         run: |
-          if ! oc rollout status deployment/perfume-shop --timeout=2m; then
+          echo "Waiting for deployment rollout..."
+          if ! oc rollout status deployment/perfume-shop --timeout=5m; then
             echo "Rollout failed! Rolling back..."
             oc rollout undo deployment/perfume-shop
             oc rollout status deployment/perfume-shop
             echo "Deployment failed and rollback triggered"
-          else
-            echo "Deployment successful!"
+            exit 1
           fi
+
+          echo "Checking for at least one ready pod..."
+          until [ "$(oc get pods -n muhammadsaleh96-dev -l app=perfume-shop -o jsonpath='{.items[0].status.containerStatuses[0].ready}')" == "true" ]; do
+            echo "Pod not ready yet. Waiting..."
+            sleep 5
+          done
+
+          echo "Deployment successful and pod is ready!"
+          
