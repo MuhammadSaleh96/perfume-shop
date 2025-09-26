@@ -70,7 +70,7 @@ jobs:
         run: |
           if ! oc get deployment perfume-shop -n muhammadsaleh96-dev; then
             echo "Deployment not found. Creating..."
-            oc create deployment perfume-shop --image=mabaddi96/perfume-shop:latest -n muhammadsaleh96-dev
+            oc create deployment perfume-shop --image=${{ secrets.DOCKER_USERNAME }}/perfume-shop:latest -n muhammadsaleh96-dev
           else
             echo "Deployment already exists."
           fi
@@ -88,6 +88,7 @@ jobs:
         run: |
           oc set image deployment/perfume-shop \
           perfume-shop=mabaddi96/perfume-shop:latest
+          oc scale deployment perfume-shop --replicas=1 -n muhammadsaleh96-dev
 
       - name: Wait for rollout and pod readiness
         run: |
