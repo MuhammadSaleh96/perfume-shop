@@ -7,7 +7,7 @@ on:
       - 'feature/*'
 
 jobs:
-  # 1️⃣ Build and test Node.js app
+  # 1️⃣ Build and test your Node.js app
   build-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -55,9 +55,11 @@ jobs:
     needs: docker-build-and-push
     steps:
       - name: Install OpenShift CLI
-        uses: openshift/openshift-tools-installer@v1
-        with:
-          version: 'latest'
+        run: |
+          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz
+          tar -xzf oc.tar.gz
+          sudo mv oc /usr/local/bin/
+          oc version
 
       - name: Log in to OpenShift
         uses: redhat-actions/oc-login@v1
@@ -79,7 +81,5 @@ jobs:
             oc rollout undo deployment/perfume-shop
             oc rollout status deployment/perfume-shop
             echo "Deployment failed and rollback triggered"
-            # Optional: send email notifications here
           else
             echo "Deployment successful!"
-            # Optional: send success email here
